@@ -14,9 +14,9 @@ from keras.models import Sequential, Model
 from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
 
-from artisynth.envs.point_model2d_env import PointModel2dEnv, PointModel2dProcessor
-from common.utilities import *
-from common import config as c
+from src.artisynth.envs.point_model2d_env import PointModel2dEnv, PointModel2dProcessor
+from src.common.utilities import *
+from src.common import config as c
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -45,7 +45,7 @@ NUM_STEPS_ANNEALING = 300000
 GAMMA = 0.99
 LR = 1e-2
 NUM_MAX_EPISODE_STEPS = 200
-NUM_TRAINING_STEPS = 5000000
+NUM_TRAINING_STEPS = 200000
 BATCH_SIZE = 32
 UPDATE_TARGET_MODEL_STEPS = 200
 WARMUP_STEPS = 200
@@ -216,7 +216,7 @@ def main(train_test_flag='train'):
             env.log_to_file = False
             history = agent.test(env, nb_episodes=NUM_EPISODES,
                                  nb_max_episode_steps=NUM_MAX_EPISODE_STEPS)
-            print(history.history)
+            print(history.history['info'])
             print('Average last distance: ',
                   np.mean(history.history['last_distance']))
             print('Mean Reward: ', np.mean(history.history['episode_reward']))
@@ -230,4 +230,5 @@ def main(train_test_flag='train'):
 
 
 if __name__ == "__main__":
+    # main('train')
     main('train')

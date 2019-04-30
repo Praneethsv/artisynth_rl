@@ -8,10 +8,10 @@ from rl.core import Env
 from rl.core import Space
 from rl.core import Processor
 
-from common.utilities import begin_time
-from common import config as config
-from common import constants as c
-from common.net import Net
+from src.common.utilities import begin_time
+from src.common import config as config
+from src.common import constants as c
+from src.common.net import Net
 
 EPSILON = 1E-12
 
@@ -63,9 +63,9 @@ class PointModel2dEnv(Env):
         return dict(zip(self.muscle_labels, np.nan_to_num(action)))
 
     def set_state(self, state):
-        self.set_state(state[:3], state[4:])
+        self._set_state(state[:3], state[4:])
 
-    def set_state(self, ref_pos, follower_pos):
+    def _set_state(self, ref_pos, follower_pos):
         self.ref_pos = ref_pos
         self.follower_pos = follower_pos
 
@@ -124,15 +124,14 @@ class PointModel2dEnv(Env):
 
     def step(self, action):
         action = self.augment_action(action)
-        # self.net.send(action, 'excitations')
         self.net.send({'excitations': action}, message_type='setExcitations')
 
-        # time.sleep(0.3)
         state = self.get_state_dict()
         if state is not None:
             new_ref_pos = np.asarray(state['ref_pos'])
             new_follower_pos = np.asarray(state['follow_pos'])
-
+            new_follower_vel = np.asarray(state['follow_vel'])[:2]  # positional velocities only
+            # print('Velocity values are: ', np.linalg.norm(new_follower_vel))
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             if self.prev_distance is not None:
                 reward, done = self.calcualte_reward_time_5(distance,
@@ -145,7 +144,8 @@ class PointModel2dEnv(Env):
             self.log('Reward: ' + str(reward), verbose=1, same_line=True)
 
             state_arr = self.state_json_to_array(state)
-            info = {'distance': distance}
+            info = {'distance': distance,
+                    'velocity': np.linalg.norm(new_follower_vel)}
 
         return state_arr, reward, done, info
 

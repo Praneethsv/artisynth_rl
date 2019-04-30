@@ -19,9 +19,9 @@ from a2c_ppo_acktr.storage import RolloutStorage
 from a2c_ppo_acktr.utils import get_vec_normalize, update_linear_schedule
 from a2c_ppo_acktr.visualize import visdom_plot
 
-from common.arguments import get_args
-from common import config
-from artisynth.make_env import make_vec_envs  # , make_env
+from src.common.arguments import get_args
+from src.common import config
+from src.artisynth.make_env import make_vec_envs  # , make_env
 
 args = get_args()
 

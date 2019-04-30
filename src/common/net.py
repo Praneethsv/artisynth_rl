@@ -5,7 +5,7 @@ from socket import timeout as TimeoutException
 import struct
 import time
 
-from common import constants as c
+from src.common import constants as c
 
 logger = logging.getLogger()
 
@@ -55,10 +55,10 @@ class Net:
             raise err
         except BrokenPipeError as err:
             logger.exception('BrokenPipeError in send: {}'.format(err))
-            self.connect(self.ip, self.port)
+            self.connect()  # self.ip, self.port
         except ConnectionResetError as err:
             logger.exception('ConnectionResetError in send: {}'.format(err))
-            self.connect(self.ip, self.port)
+            self.connect()  # self.ip, self.port
 
     def receive_message(self, msg_type, retry_type=None):
         while True:
@@ -70,7 +70,7 @@ class Net:
                     raise Exception("Expected {}, but got {} packet.".format(msg_type, rec_dict['msg_type']))
             except Exception as e:
                 # logger.error('Error in receive_message: %s.', str(e))
-                self.connect(self.ip, self.port)
+                self.connect()  # self.ip, self.port
                 # logger.info("Retry msg={}, retry={}".format(msg_type, retry_type))
                 self.send(message_type=retry_type)
                 # return self.receive_message(msg_type, retry_type=retry_type)
