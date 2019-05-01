@@ -19,7 +19,7 @@ EPSILON = 1E-12
 class PointModel2dEnv(Env):
     def __init__(self, muscle_labels=None, dof_observation=6, success_thres=0.1,
                  verbose=2, log_to_file=True, log_file='log', agent=None,
-                 include_follow=True, ip='localhost', port=6006):
+                 include_follow=False, ip='localhost', port=6006):
         self.net = Net(ip, port)
 
         self.verbose = verbose
@@ -130,8 +130,6 @@ class PointModel2dEnv(Env):
         if state is not None:
             new_ref_pos = np.asarray(state['ref_pos'])
             new_follower_pos = np.asarray(state['follow_pos'])
-            new_follower_vel = np.asarray(state['follow_vel'])[:2]  # positional velocities only
-            # print('Velocity values are: ', np.linalg.norm(new_follower_vel))
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             if self.prev_distance is not None:
                 reward, done = self.calcualte_reward_time_5(distance,
@@ -145,7 +143,8 @@ class PointModel2dEnv(Env):
 
             state_arr = self.state_json_to_array(state)
             info = {'distance': distance,
-                    'velocity': np.linalg.norm(new_follower_vel)}
+                    'velocity': np.linalg.norm(new_follower_vel)
+                    }
 
         return state_arr, reward, done, info
 
@@ -202,6 +201,12 @@ class PointModel2dEnv(Env):
                 return 1 / self.agent.episode_step, False
             else:
                 return -1, False
+
+    def calculate_reward(self, distance):
+        if distance < self.success_thres:
+            return -distance, True
+        else:
+            return -1, False
 
     def calcualte_reward_time_dist_nn5(self, new_dist, prev_dist):  # r5
         if new_dist < self.success_thres:
@@ -276,6 +281,7 @@ class PointModel2dProcessor(Processor):
             The tupel (observation, reward, done, reward) with with all elements after being processed.
         """
         observation = self.process_observation(observation)
+        # print('observation', observation)
         reward = self.process_reward(reward)
         info = self.process_info(info)
         return observation, reward, done, info

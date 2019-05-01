@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from common.arguments import get_args
+from src.common.arguments import get_args
 
 args = get_args()
 env_name = args.env_name

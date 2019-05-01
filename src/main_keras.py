@@ -15,6 +15,7 @@ from keras.layers import Dense, Activation, Flatten, Input, Concatenate
 from keras.optimizers import Adam
 
 from src.artisynth.envs.point_model2d_env import PointModel2dEnv, PointModel2dProcessor
+from src.artisynth.envs.point_model_env import PointModelEnv, PointModelProcessor
 from src.common.utilities import *
 from src.common import config as c
 
@@ -31,7 +32,7 @@ PORT = 7024
 # Constants of the environment
 NUM_MUSCLES = 6
 SUCCESS_THRESHOLD = 0.5
-DOF_OBSERVATIONS = 3
+DOF_OBSERVATIONS = 6
 
 # Noise parameters
 THETA = .35
@@ -45,14 +46,14 @@ NUM_STEPS_ANNEALING = 300000
 GAMMA = 0.99
 LR = 1e-2
 NUM_MAX_EPISODE_STEPS = 200
-NUM_TRAINING_STEPS = 200000
+NUM_TRAINING_STEPS = 100000
 BATCH_SIZE = 32
 UPDATE_TARGET_MODEL_STEPS = 200
 WARMUP_STEPS = 200
 MEMORY_SIZE = 50000
 
 # Testing parameters
-NUM_EPISODES = 500
+NUM_EPISODES = 50
 
 
 def smooth_logistic(x):
@@ -127,7 +128,7 @@ class MuscleNAFAgent(NAFAgent):
 def main(train_test_flag='train'):
     get_custom_objects().update(
         {'SmoothLogistic': Activation(smooth_logistic)})
-    model_name = '2,2,3x32Net_r4_lr{}_th{}_[t{}s{}]_nAnn[{},{}]_{}'. \
+    model_name = '2,2,3x32Net_rdistance_include_follow_lr{}_th{}_[t{}s{}]_nAnn[{},{}]_{}'. \
         format(LR,
                SUCCESS_THRESHOLD,
                THETA,
@@ -143,9 +144,9 @@ def main(train_test_flag='train'):
 
     while True:
         try:
-            env = PointModel2dEnv(verbose=0, success_thres=SUCCESS_THRESHOLD,
+            env = PointModelEnv(verbose=0, success_thres=SUCCESS_THRESHOLD,
                                   dof_observation=DOF_OBSERVATIONS,
-                                  include_follow=False, port=PORT,
+                                  include_follow=True, port=PORT,
                                   muscle_labels=muscle_labels,
                                   log_file=log_file_name)
             break
@@ -171,7 +172,7 @@ def main(train_test_flag='train'):
             n_steps_annealing=NUM_STEPS_ANNEALING
         )
         # random_process = None
-        processor = PointModel2dProcessor()
+        processor = PointModelProcessor()
         agent = MuscleNAFAgent(nb_actions=nb_actions, V_model=v_model,
                                L_model=l_model, mu_model=mu_model,
                                memory=memory,
@@ -216,7 +217,7 @@ def main(train_test_flag='train'):
             env.log_to_file = False
             history = agent.test(env, nb_episodes=NUM_EPISODES,
                                  nb_max_episode_steps=NUM_MAX_EPISODE_STEPS)
-            print(history.history['info'])
+            print(history.history['velocities'])
             print('Average last distance: ',
                   np.mean(history.history['last_distance']))
             print('Mean Reward: ', np.mean(history.history['episode_reward']))
@@ -230,5 +231,5 @@ def main(train_test_flag='train'):
 
 
 if __name__ == "__main__":
-    # main('train')
     main('train')
+    # main('test')
