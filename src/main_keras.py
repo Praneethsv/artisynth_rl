@@ -32,7 +32,7 @@ PORT = 7024
 # Constants of the environment
 NUM_MUSCLES = 6
 SUCCESS_THRESHOLD = 0.5
-DOF_OBSERVATIONS = 6
+DOF_OBSERVATIONS = 9
 
 # Noise parameters
 THETA = .35

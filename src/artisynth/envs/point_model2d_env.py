@@ -142,8 +142,7 @@ class PointModel2dEnv(Env):
             self.log('Reward: ' + str(reward), verbose=1, same_line=True)
 
             state_arr = self.state_json_to_array(state)
-            info = {'distance': distance,
-                    'velocity': np.linalg.norm(new_follower_vel)
+            info = {'distance': distance
                     }
 
         return state_arr, reward, done, info

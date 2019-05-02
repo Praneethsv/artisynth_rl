@@ -15,7 +15,7 @@ def success_threshold():
 class PointModelEnv(PointModel2dEnv):
 
     def __init__(self, verbose, muscle_labels, dof_observation, success_thres, port,
-                 include_follow=True, log_to_file=True, log_file='log', agent=None,
+                 include_follow=True, follow_velocity_include=True, log_to_file=True, log_file='log', agent=None,
                  ip='localhost'):
         super(PointModelEnv).__init__()
         self.net = Net(ip, port)
@@ -37,6 +37,7 @@ class PointModelEnv(PointModel2dEnv):
         self.port = port
         self.prev_distance = None
         self.muscle_labels = muscle_labels
+        self.follow_velocity_include = follow_velocity_include
 
     def step(self, action):
 
@@ -46,7 +47,7 @@ class PointModelEnv(PointModel2dEnv):
         if state is not None:
             new_ref_pos = np.asarray(state['ref_pos'])
             new_follower_pos = np.asarray(state['follow_pos'])
-            new_follower_vel = np.asarray(state['follow_vel'])[:2]
+            new_follower_vel = np.asarray(state['follow_vel'])[:3]
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             if self.prev_distance is not None:
                 reward, done = self.compute_reward(distance, self.prev_distance)
@@ -84,6 +85,8 @@ class PointModelEnv(PointModel2dEnv):
         assert self.include_follow
         if self.include_follow:
             state_arr = np.concatenate((state_arr, state_dict['follow_pos']))
+        if self.follow_velocity_include:
+            state_arr = np.concatenate((state_arr, state_dict['follow_vel'][:3]))
         return state_arr
 
     def get_state_dict(self):
