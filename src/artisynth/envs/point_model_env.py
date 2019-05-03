@@ -46,8 +46,6 @@ class PointModelEnv(PointModel2dEnv):
         action = self.augment_action(action)
         self.net.send({'excitations': action}, message_type='setExcitations')
         state = self.get_state_dict()
-        # print('state is ', state)
-        print('width', self.success_thres)
         if state is not None:
             new_ref_pos = np.asarray(state['ref_pos'])
             new_follower_pos = np.asarray(state['follow_pos'])
@@ -61,7 +59,6 @@ class PointModelEnv(PointModel2dEnv):
             if done:
                 self.log('Achieved done state', verbose=0)
             self.log('Reward: ' + str(reward), verbose=1, same_line=True)
-            # self.success_thres = success_threshold()
             state_arr = self.state_json_to_array(state, self.success_thres)
 
             info = {'distance': distance,
@@ -127,7 +124,6 @@ class PointModelEnv(PointModel2dEnv):
         return - self.calculate_distance(ref_pos, new_follow_pos) + velocity
 
     def compute_reward(self, new_dist, prev_dist, velocity):
-        print('success threshold in reward func:', self.success_thres)
         if new_dist < self.success_thres:
             # achieved done state
             return 5, True  # (-new_dist + np.linalg.norm(velocity))
