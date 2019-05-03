@@ -8,20 +8,20 @@ import numpy as np
 
 
 def success_threshold():
-
-    return np.random.randint(low=1, high=8) / 10.0
+    width = (np.random.randint(low=1, high=6) / 10.0,)
+    return np.asarray(width)
 
 
 class PointModelEnv(PointModel2dEnv):
 
-    def __init__(self, verbose, muscle_labels, dof_observation, success_thres, port,
-                 include_follow=True, follow_velocity_include=True, log_to_file=True, log_file='log', agent=None,
+    def __init__(self, verbose, muscle_labels, dof_observation, port,
+                 include_follow=False, follow_velocity_include=False, include_width=False,
+                 include_distance=False, log_to_file=True, log_file='log', agent=None,
                  ip='localhost'):
         super(PointModelEnv).__init__()
         self.net = Net(ip, port)
 
         self.verbose = verbose
-        self.success_thres = success_thres
         self.ref_pos = None
 
         self.action_space = type(self).ActionSpace(muscle_labels)
@@ -38,27 +38,32 @@ class PointModelEnv(PointModel2dEnv):
         self.prev_distance = None
         self.muscle_labels = muscle_labels
         self.follow_velocity_include = follow_velocity_include
+        self.include_width = include_width
+        self.include_distance = include_distance
 
     def step(self, action):
 
         action = self.augment_action(action)
         self.net.send({'excitations': action}, message_type='setExcitations')
         state = self.get_state_dict()
+        # print('state is ', state)
+        print('width', self.success_thres)
         if state is not None:
             new_ref_pos = np.asarray(state['ref_pos'])
             new_follower_pos = np.asarray(state['follow_pos'])
             new_follower_vel = np.asarray(state['follow_vel'])[:3]
             distance = self.calculate_distance(new_ref_pos, new_follower_pos)
             if self.prev_distance is not None:
-                reward, done = self.compute_reward(distance, self.prev_distance)
+                reward, done = self.compute_reward(distance, self.prev_distance, new_follower_vel)
             else:
                 reward, done = (0, False)
             self.prev_distance = distance
             if done:
                 self.log('Achieved done state', verbose=0)
             self.log('Reward: ' + str(reward), verbose=1, same_line=True)
+            # self.success_thres = success_threshold()
+            state_arr = self.state_json_to_array(state, self.success_thres)
 
-            state_arr = self.state_json_to_array(state)
             info = {'distance': distance,
                     'velocity': np.linalg.norm(new_follower_vel)}
 
@@ -80,13 +85,17 @@ class PointModelEnv(PointModel2dEnv):
         self.ref_pos = ref_pos
         self.follower_pos = follower_pos
 
-    def state_json_to_array(self, state_dict: dict):
+    def state_json_to_array(self, state_dict: dict, success_thres):
         state_arr = np.asarray(state_dict['ref_pos'])
         assert self.include_follow
         if self.include_follow:
             state_arr = np.concatenate((state_arr, state_dict['follow_pos']))
         if self.follow_velocity_include:
             state_arr = np.concatenate((state_arr, state_dict['follow_vel'][:3]))
+        if self.include_width:
+            state_arr = np.concatenate((state_arr, success_thres))
+        if self.include_distance:
+            state_arr = np.concatenate((state_arr, ))
         return state_arr
 
     def get_state_dict(self):
@@ -100,7 +109,8 @@ class PointModelEnv(PointModel2dEnv):
         self.prev_distance = None
         self.log('Reset', verbose=0)
         state_dict = self.get_state_dict()
-        state = self.state_json_to_array(state_dict)
+        self.success_thres = success_threshold()
+        state = self.state_json_to_array(state_dict, success_thres=self.success_thres)
         return state
 
     def render(self, mode='human', close=False):
@@ -116,10 +126,11 @@ class PointModelEnv(PointModel2dEnv):
     def compute_speed_reward(self, ref_pos, prev_follow_pos, new_follow_pos, velocity):
         return - self.calculate_distance(ref_pos, new_follow_pos) + velocity
 
-    def compute_reward(self, new_dist, prev_dist):
+    def compute_reward(self, new_dist, prev_dist, velocity):
+        print('success threshold in reward func:', self.success_thres)
         if new_dist < self.success_thres:
             # achieved done state
-            return 1 / new_dist, True
+            return 5, True  # (-new_dist + np.linalg.norm(velocity))
         else:
             if prev_dist - new_dist > 0:
                 return 1 / self.agent.episode_step, False
@@ -149,7 +160,7 @@ class PointModelProcessor(Processor):
             The tupel (observation, reward, done, reward) with with all elements after being processed.
         """
         observation = self.process_observation(observation)
-        # print('observation', observation)
+        print('observation', observation)
         reward = self.process_reward(reward)
         info = self.process_info(info)
         return observation, reward, done, info

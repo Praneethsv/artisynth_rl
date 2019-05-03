@@ -32,7 +32,7 @@ PORT = 7024
 # Constants of the environment
 NUM_MUSCLES = 6
 SUCCESS_THRESHOLD = 0.5
-DOF_OBSERVATIONS = 9
+DOF_OBSERVATIONS = 7
 
 # Noise parameters
 THETA = .35
@@ -46,7 +46,7 @@ NUM_STEPS_ANNEALING = 300000
 GAMMA = 0.99
 LR = 1e-2
 NUM_MAX_EPISODE_STEPS = 200
-NUM_TRAINING_STEPS = 100000
+NUM_TRAINING_STEPS = 30000 # 100000
 BATCH_SIZE = 32
 UPDATE_TARGET_MODEL_STEPS = 200
 WARMUP_STEPS = 200
@@ -70,7 +70,7 @@ def get_v_model(env):
     v_model.add(Activation('relu'))
     v_model.add(Dense(1))
     v_model.add(Activation('relu', name='V_final'))
-    print(v_model.summary())
+    # print(v_model.summary())
     return v_model
 
 
@@ -84,7 +84,7 @@ def get_mu_model(env):
     mu_model.add(Activation('relu'))
     mu_model.add(Dense(env.action_space.shape[0]))
     mu_model.add(Activation('SmoothLogistic', name='mu_final'))
-    print(mu_model.summary())
+    # print(mu_model.summary())
     return mu_model
 
 
@@ -103,7 +103,7 @@ def get_l_model(env):
     x = Dense(((nb_actions * nb_actions + nb_actions) // 2))(x)
     x = Activation('linear', name='L_final')(x)
     l_model = Model(inputs=[action_input, observation_input], outputs=x)
-    print(l_model.summary())
+    # print(l_model.summary())
     return l_model
 
 
@@ -144,11 +144,10 @@ def main(train_test_flag='train'):
 
     while True:
         try:
-            env = PointModelEnv(verbose=0, success_thres=SUCCESS_THRESHOLD,
-                                  dof_observation=DOF_OBSERVATIONS,
-                                  include_follow=True, port=PORT,
-                                  muscle_labels=muscle_labels,
-                                  log_file=log_file_name)
+            env = PointModelEnv(verbose=0, dof_observation=DOF_OBSERVATIONS,
+                                include_follow=True, include_width=True, port=PORT,
+                                muscle_labels=muscle_labels,
+                                log_file=log_file_name)
             break
         except ConnectionRefusedError as e:
             print("Server not started: ", e)
