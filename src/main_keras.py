@@ -46,7 +46,7 @@ NUM_STEPS_ANNEALING = 300000
 GAMMA = 0.99
 LR = 1e-2
 NUM_MAX_EPISODE_STEPS = 200
-NUM_TRAINING_STEPS = 30000 # 100000
+NUM_TRAINING_STEPS = 200000 # 100000
 BATCH_SIZE = 32
 UPDATE_TARGET_MODEL_STEPS = 200
 WARMUP_STEPS = 200
@@ -230,5 +230,5 @@ def main(train_test_flag='train'):
 
 
 if __name__ == "__main__":
-    main('train')
-    # main('test')
+    # main('train')
+    main('test')

@@ -156,7 +156,7 @@ class PointModelProcessor(Processor):
             The tupel (observation, reward, done, reward) with with all elements after being processed.
         """
         observation = self.process_observation(observation)
-        print('observation', observation)
+        # print('observation', observation)
         reward = self.process_reward(reward)
         info = self.process_info(info)
         return observation, reward, done, info
