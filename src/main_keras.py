@@ -53,7 +53,7 @@ WARMUP_STEPS = 200
 MEMORY_SIZE = 50000
 
 # Testing parameters
-NUM_EPISODES = 50
+NUM_EPISODES = 4
 
 
 def smooth_logistic(x):

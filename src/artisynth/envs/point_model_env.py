@@ -5,10 +5,18 @@ from src.common import constants as c
 from src.common.net import Net
 from rl.core import Processor
 import numpy as np
+import pickle
+
+NUM_TESTING_STEPS = 50
 
 
 def success_threshold():
-    width = (np.random.randint(low=1, high=6) / 10.0,)
+    width = (np.random.randint(low=2, high=6) / 10.0,)
+    return np.asarray(width)
+
+
+def eval_success_threshold(episode):
+    width = (0.2 + episode,)
     return np.asarray(width)
 
 
@@ -100,13 +108,16 @@ class PointModelEnv(PointModel2dEnv):
         state_dict = self.net.receive_message(c.STATE_STR, retry_type=c.GET_STATE_STR)
         return state_dict
 
-    def reset(self):
+    def reset(self, episode):
         self.net.send(message_type=c.RESET_STR)
         self.ref_pos = None
         self.prev_distance = None
         self.log('Reset', verbose=0)
         state_dict = self.get_state_dict()
-        self.success_thres = success_threshold()
+        if episode == None:
+            self.success_thres = success_threshold()
+        else:
+            self.success_thres = eval_success_threshold(episode)
         state = self.state_json_to_array(state_dict, success_thres=self.success_thres)
         return state
 
@@ -145,7 +156,7 @@ class PointModelProcessor(Processor):
         or write your own.
         """
 
-    def process_step(self, observation, reward, done, info):
+    def process_step(self, observation, reward, done, info, episode):
         """Processes an entire step by applying the processor to the observation, reward, and info arguments.
         # Arguments
             observation (object): An observation as obtained by the environment.
@@ -155,10 +166,13 @@ class PointModelProcessor(Processor):
         # Returns
             The tupel (observation, reward, done, reward) with with all elements after being processed.
         """
+        vels = [[] for _ in range(NUM_TESTING_STEPS)]
         observation = self.process_observation(observation)
-        # print('observation', observation)
         reward = self.process_reward(reward)
         info = self.process_info(info)
+        vels[episode].append((info['velocity']))
+        fp = open("/home/praneethsv/artisynth_rl/results/PongNoFrameskip-v4/testModel/velocity_log.p", "wb")
+        pickle.dump(vels, fp)
         return observation, reward, done, info
 
     def process_observation(self, observation):
