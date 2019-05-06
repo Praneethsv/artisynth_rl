@@ -168,7 +168,6 @@ class PointModelProcessor(Processor):
         # Returns
             The tupel (observation, reward, done, reward) with with all elements after being processed.
         """
-        vels = [[] for _ in range(NUM_TESTING_STEPS)]
         observation = self.process_observation(observation)
         reward = self.process_reward(reward)
         info = self.process_info(info)
