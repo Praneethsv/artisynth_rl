@@ -69,8 +69,9 @@ class PointModelEnv(PointModel2dEnv):
             self.log('Reward: ' + str(reward), verbose=1, same_line=True)
             state_arr = self.state_json_to_array(state, self.success_thres)
 
-            info = {'distance': distance,
-                    'velocity': np.linalg.norm(new_follower_vel)}
+            info = {'amplitude': distance,
+                    'velocity': np.linalg.norm(new_follower_vel),
+                    'distance': np.linalg.norm(new_ref_pos)}
 
         return state_arr, reward, done, info
 
