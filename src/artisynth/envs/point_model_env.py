@@ -16,7 +16,7 @@ def success_threshold():
 
 
 def eval_success_threshold(episode):
-    width = (0.2 + episode,)
+    width = (0.2 + episode / 10.0,)
     return np.asarray(width)
 
 
@@ -71,7 +71,8 @@ class PointModelEnv(PointModel2dEnv):
 
             info = {'amplitude': distance,
                     'velocity': np.linalg.norm(new_follower_vel),
-                    'distance': np.linalg.norm(new_ref_pos)}
+                    'distance': np.linalg.norm(new_ref_pos),
+                    'width': self.success_thres}
 
         return state_arr, reward, done, info
 
@@ -115,7 +116,7 @@ class PointModelEnv(PointModel2dEnv):
         self.prev_distance = None
         self.log('Reset', verbose=0)
         state_dict = self.get_state_dict()
-        if episode == None:
+        if episode is None:
             self.success_thres = success_threshold()
         else:
             self.success_thres = eval_success_threshold(episode)
