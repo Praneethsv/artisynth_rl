@@ -172,9 +172,6 @@ class PointModelProcessor(Processor):
         observation = self.process_observation(observation)
         reward = self.process_reward(reward)
         info = self.process_info(info)
-        vels[episode].append((info['velocity']))
-        fp = open("/home/praneethsv/artisynth_rl/results/PongNoFrameskip-v4/testModel/velocity_log.p", "wb")
-        pickle.dump(vels, fp)
         return observation, reward, done, info
 
     def process_observation(self, observation):
