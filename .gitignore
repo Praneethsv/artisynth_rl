@@ -37,3 +37,4 @@ results*
 src/wandb
 .ipynb_checkpoints/
 *.pyc
+/bin/
