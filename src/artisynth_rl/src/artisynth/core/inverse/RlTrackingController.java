@@ -214,7 +214,7 @@ public class RlTrackingController extends TrackingController {
 				sendActionSize();
 				break;
 			default:
-				Log.log("Unknown packet type: " + jo_receive.getString("type"));
+				Log.info("Unknown packet type: " + jo_receive.getString("type"));
 				break;
 			}
 		} catch (JSONException e) {
@@ -224,7 +224,7 @@ public class RlTrackingController extends TrackingController {
 	}
 
 	private void sendStateSize() {
-		Log.log("Sending state size");
+		Log.info("Sending state size");
 		int state_size = 0;
 
 		ArrayList<MotionTargetComponent> targets = myMotionTerm.getTargets();
@@ -241,7 +241,7 @@ public class RlTrackingController extends TrackingController {
 		}
 
 		state_size += numExcitations();
-		Log.log("state_size: " + state_size);
+		Log.info("state_size: " + state_size);
 		JSONObject jo = new JSONObject();
 		try {
 			jo.put("type", "stateSize");
@@ -254,9 +254,9 @@ public class RlTrackingController extends TrackingController {
 	}
 	
 	private void sendActionSize() {
-		Log.log("Sending action size");
+		Log.info("Sending action size");
 		int action_size = numExcitations();
-		Log.log("state_size: " + action_size);
+		Log.info("state_size: " + action_size);
 		
 		JSONObject jo = new JSONObject();
 		try {
@@ -309,7 +309,7 @@ public class RlTrackingController extends TrackingController {
 
 			networkHandler.send(jo);
 		} catch (JSONException e) {
-			Log.log("Error in send: " + e.getMessage());
+			Log.info("Error in send: " + e.getMessage());
 		}
 	}
 

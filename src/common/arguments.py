@@ -3,14 +3,29 @@ import argparse
 import torch
 
 
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 def get_args():
     parser = argparse.ArgumentParser(description='RL')
+    parser.conflict_handler = 'resolve'
+
     parser.add_argument('--ip', type=str, default='localhost',
                         help='IP of server')
     parser.add_argument('--verbose', type=int, default='20',
                         help='Verbosity level')
-    parser.add_argument('--env-name', default='PongNoFrameskip-v4',
-                        help='environment to train on (default: PongNoFrameskip-v4)')
+    parser.add_argument('--init_artisynth', type=str2bool, default=True,
+                        help='run environment with GUI.')
+    parser.add_argument('--experiment_name', default='UnknownModel',
+                        help='Name of the experiment, for logging purposes.')
+    parser.add_argument('--env', default='Point2PointEnv-v0',
+                        help='environment to train on')
     parser.add_argument('--model-name', default='testModel',
                         help='Name of the RL model being trained for logging purposes.')
     parser.add_argument('--load-path', default=None,
@@ -27,16 +42,26 @@ def get_args():
                         help='Wait (seconds) for action to take place and environment to stabilize.')
     parser.add_argument('--episodic', action='store_true', default=False,
                         help='Whether task is episodic.')
-    parser.add_argument('--test', action='store_true', default=False,
+    parser.add_argument('--test', type=str2bool, default=False,
                         help='Only evaluate a trained model.')
-    parser.add_argument('--use-wandb', action='store_true', default=False,
+    parser.add_argument('--use_wandb', type=str2bool, default=False,
                         help='Use wandb for train logging.')
+    parser.add_argument('--use_tensorboard', default=False,
+                        help='use tensorboard for logging')
     parser.add_argument('--resume-wandb', action='store_true', default=False,
                         help='Resume the wandb training log.')
     parser.add_argument('--reset-step', type=int, default=-1,
                         help='Reset envs every n iters.')
     parser.add_argument('--hidden-layer-size', type=int, default=64,
                         help='Number of neurons in all hidden layers.')
+    parser.add_argument('--save_interval', type=int, default=10,
+                        help='save interval, one save per n updates')
+    parser.add_argument('--eval_interval', type=int, default=100,
+                        help='eval interval, one eval per n updates')
+    parser.add_argument('--episode_log_interval', type=int, default=1,
+                        help='log interval for episodes')
+    parser.add_argument('--eval_episode', type=int, default=5,
+                        help='Number of episodes to evaluate')
 
     parser.add_argument('--algo', default='ppo',
                         help='algorithm to use: a2c | ppo | acktr')
@@ -44,14 +69,10 @@ def get_args():
                         help='learning rate (default: 7e-4)')
     parser.add_argument('--eps', type=float, default=1e-5,
                         help='RMSprop optimizer epsilon (default: 1e-5)')
-    parser.add_argument('--alpha', type=float, default=0.99,
-                        help='RMSprop optimizer apha (default: 0.99)')
     parser.add_argument('--gamma', type=float, default=0.99,
                         help='discount factor for rewards (default: 0.99)')
     parser.add_argument('--use-gae', action='store_true', default=False,
                         help='use generalized advantage estimation')
-    parser.add_argument('--tau', type=float, default=0.95,
-                        help='gae parameter (default: 0.95)')
     parser.add_argument('--entropy-coef', type=float, default=0.01,
                         help='entropy term coefficient (default: 0.01)')
     parser.add_argument('--value-loss-coef', type=float, default=0.5,
@@ -94,8 +115,44 @@ def get_args():
                         help='use a linear schedule on the ppo clipping parameter')
     parser.add_argument('--vis', action='store_true', default=False,
                         help='enable visdom visualization')
-    args = parser.parse_args()
+    parser.add_argument('--goal_threshold', type=float, default=0.1,
+                        help='Difference between real and target which is considered as success '
+                             'when reaching a goal')
+    parser.add_argument('--goal_reward', type=float, default=0,
+                        help='The reward to give if goal was reached.')
+    parser.add_argument('--zero_excitations_on_reset', type=str2bool, default=True,
+                        help='Reset all muscle excitations to zero after each reset.')
+    parser.add_argument('--reward', type=str, default="intermediate",
+                        help='type of reward to use: Step or Intermediate')
+    parser.add_argument('--reward_type', type=str, default="dense",
+                        help='sparse or dense reward to choose for the algorithm')
+    parser.add_argument('--wait_action', type=float, default=0.0,
+                        help='Wait time for action\'s impact to be perceived in the environment '
+                             '(sec)')
+    parser.add_argument('--incremental_actions', type=str2bool, default=False,
+                        help='Treat actions as increment/decrements to the current excitations.')
 
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
+    # environment observation space
+    parser.add_argument('--include_target_width', type=str2bool, default=False,
+                        help='Include target width in the state space')
+    parser.add_argument('--include_velocity', type=str2bool, default=False,
+                        help='Include velocity in the state space')
+    parser.add_argument('--include_perceptual_width', type=str2bool, default=False,
+                        help='Include perceptual width in the state space')
+    parser.add_argument('--include_time', type=str2bool, default=False,
+                        help='Include the duration of excitation in the state space')
+    parser.add_argument('--reset_step', type=int, default=1e10, help='Reset envs every n iters.')
+    parser.add_argument('--include_current_state', type=str2bool, default=True,
+                        help='Include the current position/rotation of the model in the state.')
+    parser.add_argument('--include_target_state', type=str2bool, default=True,
+                        help='Include the target position/rotation/velocity of the model in the state.')
+    parser.add_argument('--include_current_excitations', type=str2bool, default=False,
+                        help='Include the current excitations of actuators in the state.')
+    parser.add_argument('--include_distance_error', type=str2bool, default=False,
+                        help='Include the error to the target distance in the state.')
+    parser.add_argument('--include_displacement', type=str2bool, default=False,
+                        help='Include the distance travelled by the agent.')
+    parser.add_argument('--include_acceleration', type=str2bool, default=False,
+                        help='Include the distance travelled by the agent.')
 
-    return args
+    return parser

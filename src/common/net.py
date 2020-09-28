@@ -5,7 +5,7 @@ from socket import timeout as TimeoutException
 import struct
 import time
 
-from src.common import constants as c
+from common import constants as c
 
 logger = logging.getLogger()
 
@@ -49,7 +49,7 @@ class Net:
                 print('Data not sent completely: ' + str(bytes_sent) + ' < ' +
                       str(json_obj.__len__()))
                 bytes_sent = self.sock.send(json_obj)
-            logger.debug('obj sent: ' + str(obj))
+            logger.info('obj sent: ' + str(obj))
         except NameError as err:
             logger.exception('NameError in send: {}'.format(err))
             raise err

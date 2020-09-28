@@ -43,7 +43,7 @@ public class NetworkHandler extends Thread {
 
 	public void run() {
 		while (true) {
-			Log.log("Running the network handlder");
+			Log.info("Running the network handlder");
 			try {
 				ServerSocket listener = new ServerSocket(port);
 				while (true) {
@@ -55,10 +55,10 @@ public class NetworkHandler extends Thread {
 					this.networkReceiveHandler.start();
 //					out = new PrintWriter(socket.getOutputStream(), true);
 					out = new DataOutputStream(socket.getOutputStream());
-					Log.log("New connection with client at " + this.socket);
+					Log.info("New connection with client at " + this.socket);
 				}
 			} catch (IOException err) {
-				Log.log("Error: " + err.getMessage());
+				Log.info("Error: " + err.getMessage());
 				socket = null;
 				out = null;
 			}
@@ -76,7 +76,7 @@ public class NetworkHandler extends Thread {
 
 	public boolean send(JSONObject object) {
 		if (socket == null) {
-			Log.log("Socket is null, no client connection");
+			Log.info("Socket is null, no client connection");
 			return false;
 		}
 
@@ -88,10 +88,10 @@ public class NetworkHandler extends Thread {
 			//System.out.println(objstr.length());
 			out.writeUTF(object.toString());
 			out.flush();
-			Log.log("data sent: " + object.toString());
+			Log.info("data sent: " + object.toString());
 			return true;
 		} catch (Exception e) {
-			Log.log("Error handling client" + e);
+			Log.info("Error handling client" + e);
 			return false;
 		}
 	}

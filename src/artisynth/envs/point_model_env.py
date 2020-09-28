@@ -1,13 +1,28 @@
-from src.artisynth.envs.point_model2d_env import PointModel2dEnv
-from src.common.utilities import begin_time
-from src.common import config as config
-from src.common import constants as c
-from src.common.net import Net
-from rl.core import Processor
+import os
+import time
+import logging
+
+import torch
+
+import gym
+from gym import error, spaces
+from gym.utils import seeding
+
+from common import constants as c
+from common.net import Net
+
 import numpy as np
-import pickle
+
 
 NUM_TESTING_STEPS = 50
+
+LOW_EXCITATION = 0
+HIGH_EXCITATION = 1
+
+logger = logging.getLogger()
+
+COMPS = ['ref_pos',
+         'follow_pos']
 
 
 def success_threshold():
@@ -20,39 +35,129 @@ def eval_success_threshold(episode):
     return np.asarray(width)
 
 
-class PointModelEnv(PointModel2dEnv):
+def get_excitations_time_labels(length):
+    labels = []
+    excitation_time_str = "excitationsTime"
+    for i in range(length):
+        labels.append(excitation_time_str + str(i))
+    return labels
 
-    def __init__(self, verbose, muscle_labels, dof_observation, port,
-                 include_follow=False, follow_velocity_include=False, include_width=False,
-                 include_distance=False, log_to_file=True, log_file='log', agent=None,
-                 ip='localhost'):
+
+def get_excitations_labels(length):
+    labels = []
+    excitation_str = "M"
+    for i in range(length):
+        labels.append(excitation_str + str(i))
+    return labels
+
+
+class PointModelEnv(gym.Env):
+
+    def __init__(self, ip, port, wait_action, eval_mode=False, reset_step=20, include_time=False,
+                 init_artisynth=False, include_target_width=False, include_distance=False, include_target_state=True,
+                 include_excitations=False, include_current=True, include_velocity=False,
+                 ):
         super(PointModelEnv).__init__()
+        self.sock = None
+
         self.net = Net(ip, port)
+        self.episode_counter = 0
+        self.reset_step = reset_step
+        self.eval_mode = eval_mode
 
-        self.verbose = verbose
-        self.ref_pos = None
-
-        self.action_space = type(self).ActionSpace(muscle_labels)
-        self.observation_space = type(self).ObservationSpace(
-            dof_observation)  # np.random.rand(dof_observation)
-        self.log_to_file = log_to_file
-        self.log_file_name = log_file
-        if log_to_file:
-            self.logfile, path = type(self).create_log_file(log_file)
-            self.log('Logging into file: ' + path, verbose=1)
-        self.agent = agent
-        self.include_follow = include_follow
-        self.port = port
-        self.prev_distance = None
-        self.muscle_labels = muscle_labels
-        self.follow_velocity_include = follow_velocity_include
-        self.include_width = include_width
+        self.wait_action = wait_action
+        logger.info("Inside the constructor of point_model")
+        self.include_excitations = include_excitations
+        self.include_current = include_current
+        self.include_velocity = include_velocity
+        self.include_target_width = include_target_width
+        self.include_target_state = include_target_state
         self.include_distance = include_distance
+        self.include_time = include_time
+
+        if init_artisynth:
+            logger.info('Running artisynth')
+            self.run_artisynth(ip, port)
+
+        self.action_size = self.get_action_size()
+        print('action size', self.action_size)
+        obs = self.reset(None)
+        logger.info('State array size: {}'.format(obs.shape))
+        self.obs_size = obs.shape[0]
+
+        self.observation_space = spaces.Box(low=-0.2, high=+0.2,
+                                            shape=[self.obs_size], dtype=np.float32)
+
+        self.observation_space.shape = (self.obs_size,)
+
+        # init action space
+        self.action_space = spaces.Box(low=LOW_EXCITATION, high=HIGH_EXCITATION,
+                                       shape=(self.action_size,),
+                                       dtype=np.float32)
+
+    def run_artisynth(self, ip, port):
+        if ip != 'localhost':
+            raise NotImplementedError
+
+        command = 'artisynth -model artisynth.models.lumbarSpine.RlLumbarSpine ' + \
+                  '[ -port {} ] -play -noTimeline'. \
+                      format(port)
+        command_list = command.split(' ')
+
+        import subprocess
+        FNULL = open(os.devnull, 'w')
+        subprocess.Popen(command_list, stdout=FNULL, stderr=subprocess.STDOUT)
+        time.sleep(3)
+
+    def get_state_dict(self):
+        self.net.send(message_type=c.GET_STATE_STR)
+        state_dict = self.net.receive_message(c.STATE_STR, retry_type=c.GET_STATE_STR)
+        return state_dict
+
+    def get_state_size(self):
+        self.net.send(message_type=c.GET_STATE_SIZE_STR)
+        rec_dict = self.net.receive_message(c.STATE_SIZE_STR, c.GET_STATE_SIZE_STR)
+        logger.info('State size: {}'.format(rec_dict[c.STATE_SIZE_STR]))
+        return rec_dict[c.STATE_SIZE_STR]
+
+    def get_action_size(self):
+        self.net.send(message_type=c.GET_ACTION_SIZE_STR)
+        rec_dict = self.net.receive_message(c.ACTION_SIZE_STR, c.GET_ACTION_SIZE_STR)
+        logger.info('Action size: {}'.format(rec_dict[c.ACTION_SIZE_STR]))
+        return rec_dict[c.ACTION_SIZE_STR]
+
+    def state_dict2tensor(self, state):
+        return torch.tensor(self.state_dic_to_array(state))
+
+    def get_state_tensor(self):
+        state_dict = self.get_state_dict()
+        return self.state_dict2tensor(state_dict)
+
+    def take_action(self, action):
+        print('activations: ', action)
+        self.net.send({'excitations': action}, message_type='setExcitations')
+        rec_dict = self.net.receive_message(c.EXCITATIONS_DONE_STR)
+        return rec_dict[c.EXCITATIONS_DONE_STR]
+
+    def take_action_time(self, action_time):
+        self.net.send({'excitationsTime': action_time}, message_type='setExcitationsTime')
+        rec_dict = self.net.receive_message(msg_type=c.EXCITATIONS_TIME_DONE_STR)
+        print('rec_dict in take_action_time is: ', rec_dict)
+        return rec_dict[c.EXCITATIONS_TIME_DONE_STR]
+
+    def augment_action_time(self, action_time):
+        excitations_time_labels = get_excitations_time_labels(int(self.action_size / 2))
+        return dict(zip(excitations_time_labels, action_time))
+
+    def augment_action(self, actions):
+        excitation_labels = get_excitations_labels(self.action_size)
+        return dict(zip(excitation_labels, actions))
 
     def step(self, action):
 
         action = self.augment_action(action)
         self.net.send({'excitations': action}, message_type='setExcitations')
+        # self.net.receive_message()
         state = self.get_state_dict()
         if state is not None:
             new_ref_pos = np.asarray(state['ref_pos'])
@@ -75,6 +180,28 @@ class PointModelEnv(PointModel2dEnv):
                     'width': self.success_thres}
 
         return state_arr, reward, done, info
+
+    def controller_step(self, actions, actions_time):
+        info = {}
+        done = False
+        logger.debug('action:{}'.format(actions))
+        exc_time_set = self.take_action_time(self.augment_action_time(actions_time))
+        print('time set: ', exc_time_set)
+        if exc_time_set:
+            print("taking actions ... ")
+            actions = np.clip(actions, LOW_EXCITATION, HIGH_EXCITATION)
+            actions = self.augment_action(actions)
+            excs_done = self.take_action(actions)
+        print('excitations filled: ', excs_done)
+        if excs_done:
+            state = self.get_state_dict()
+        if not state:
+            return None, 0, False, {}
+        state_arr = self.state_dic_to_array(state, self.success_thres)
+        info['state_time'] = state[c.TIME]
+        if self.episode_counter >= self.reset_step:
+            done = True
+        return state_arr, done, info
 
     @staticmethod
     def parse_state(state_dict: dict):
@@ -105,6 +232,23 @@ class PointModelEnv(PointModel2dEnv):
             state_arr = np.concatenate((state_arr, ))
         return state_arr
 
+    def state_dic_to_array(self, js, success_thres):
+        logger.debug('state json: %s', str(js))
+
+        observation_vector = []
+
+        if self.include_current:
+            observation_vector.extend(js[COMPS[0]])
+        if self.include_target_state:
+            observation_vector.extend(js[COMPS[1]])
+        if self.include_distance:
+            observation_vector.extend(js['distanceError'])
+        if self.include_distance:
+            observation_vector.extend(js['time'])
+        """ TODO: include time """
+
+        return np.asarray(observation_vector)
+
     def get_state_dict(self):
         self.net.send(message_type=c.GET_STATE_STR)
         state_dict = self.net.receive_message(c.STATE_STR, retry_type=c.GET_STATE_STR)
@@ -114,13 +258,17 @@ class PointModelEnv(PointModel2dEnv):
         self.net.send(message_type=c.RESET_STR)
         self.ref_pos = None
         self.prev_distance = None
-        self.log('Reset', verbose=0)
+
         state_dict = self.get_state_dict()
+        print('state_dict from the server: ', state_dict)
+        logger.log(msg=['Target: %s',
+                        (['{:.4f}'.format(x) for x in state_dict[COMPS[1]]])], level=15)
         if episode is None:
             self.success_thres = success_threshold()
         else:
             self.success_thres = eval_success_threshold(episode)
-        state = self.state_json_to_array(state_dict, success_thres=self.success_thres)
+        state = self.state_dic_to_array(state_dict, success_thres=self.success_thres)
+        print('state after reset: ', state)
         return state
 
     def render(self, mode='human', close=False):
@@ -145,73 +293,3 @@ class PointModelEnv(PointModel2dEnv):
                 return 1 / self.agent.episode_step, False
             else:
                 return -1, False
-
-
-class PointModelProcessor(Processor):
-    """Abstract base class for implementing processors.
-        A processor acts as a coupling mechanism between an `Agent` and its `Env`. This can
-        be necessary if your agent has different requirements with respect to the form of the
-        observations, actions, and rewards of the environment. By implementing a custom processor,
-        you can effectively translate between the two without having to change the underlaying
-        implementation of the agent or environment.
-        Do not use this abstract base class directly but instead use one of the concrete implementations
-        or write your own.
-        """
-
-    def process_step(self, observation, reward, done, info, episode):
-        """Processes an entire step by applying the processor to the observation, reward, and info arguments.
-        # Arguments
-            observation (object): An observation as obtained by the environment.
-            reward (float): A reward as obtained by the environment.
-            done (boolean): `True` if the environment is in a terminal state, `False` otherwise.
-            info (dict): The debug info dictionary as obtained by the environment.
-        # Returns
-            The tupel (observation, reward, done, reward) with with all elements after being processed.
-        """
-        observation = self.process_observation(observation)
-        reward = self.process_reward(reward)
-        info = self.process_info(info)
-        return observation, reward, done, info
-
-    def process_observation(self, observation):
-        """Processes the observation as obtained from the environment for use in an agent and
-        returns it.
-        """
-        return observation
-
-    def process_reward(self, reward):
-        """Processes the reward as obtained from the environment for use in an agent and
-        returns it.
-        """
-        return reward
-
-    def process_info(self, info):
-        """Processes the info as obtained from the environment for use in an agent and
-        returns it.
-        """
-        return info
-
-    def process_action(self, action):
-        """Processes an action predicted by an agent but before execution in an environment.
-        """
-        return action
-
-    def process_state_batch(self, batch):
-        """Processes an entire batch of states and returns it.
-        """
-        return batch
-
-    @property
-    def metrics(self):
-        """The metrics of the processor, which will be reported during training.
-        # Returns
-            List of `lambda y_true, y_pred: metric` functions.
-        """
-        return []
-
-    @property
-    def metrics_names(self):
-        """The human-readable names of the agent's metrics. Must return as many names as there
-        are metrics (see also `compile`).
-        """
-        return []

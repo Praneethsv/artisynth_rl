@@ -2,23 +2,32 @@ package artisynth.models.rl;
 
 import java.io.IOException;
 
+import artisynth.core.inverse.Log;
+
 public class PointModelGenericRl extends PointModel2dRl
 {
 	int port = 6010;
 	int num_particles = 12;
+	
+	
 	public void build (String[] args) throws IOException
 	{				
 		parseArgs(args);
+		Log.info("Inside Generic: " + myDemoType);
 		super.build(myDemoType, args);		
 	}
 	
-	private void parseArgs(String[] args) {
+	public void parseArgs(String[] args) {
+		
 		for (int i = 0; i< args.length; i+=2)
 		{
 			if (args[i].equals("-demoType"))
 			{				
 				switch (Integer.parseInt(args[i+1])) 
 				{
+				case 1: 
+					myDemoType = DemoType.Point1d;
+					break;
 				case 2:
 					myDemoType = DemoType.Point2d;
 					break;

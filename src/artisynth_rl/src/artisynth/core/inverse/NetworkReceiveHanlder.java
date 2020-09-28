@@ -34,40 +34,40 @@ public class NetworkReceiveHanlder extends Thread {
 				JSONObject jo = receiveJsonObject();
 
 				if (jo != null) {
-					Log.log("Obj received: " + jo.toString());
+					Log.info("Obj received: " + jo.toString());
 					// if (lock.isLocked())
 					// return;
 					try {
-						Log.log("Locking lock in run");
+						Log.info("Locking lock in run");
 						lock.lock();
 						queue.add(jo);
-						Log.log("Queue size after add: " + queue.size());
+						Log.info("Queue size after add: " + queue.size());
 					} catch (Exception e) {
-						Log.log("Error in NetowkrReceive run: "
+						Log.info("Error in NetowkrReceive run: "
 								+ e.getMessage());
 					} finally {
 						// lock.notify();
 						lock.unlock();
-						Log.log("Unlocked lock in run");
+						Log.info("Unlocked lock in run");
 					}
 				}
 
 			} catch (SocketException e) {
-				Log.log("SocketException in receiveJsonObject: "
+				Log.info("SocketException in receiveJsonObject: "
 						+ e.getMessage());
 				try {
 					in.close();
 					this.interrupt();
 					in = null;
-					Log.log("Closing the receive thread");
+					Log.info("Closing the receive thread");
 					break;
 				} catch (IOException ioerr) {
-					Log.log("Error in closing the receive thread");
+					Log.info("Error in closing the receive thread");
 				}
 			} catch (IOException e) {
-				Log.log("IOException in receiveJsonObject: " + e.getMessage());
+				Log.info("IOException in receiveJsonObject: " + e.getMessage());
 			} catch (JSONException e) {
-				Log.log("JSONException in receiveJsonObject: "
+				Log.info("JSONException in receiveJsonObject: "
 						+ e.getMessage());
 			}
 		}
@@ -84,17 +84,17 @@ public class NetworkReceiveHanlder extends Thread {
 				return null;
 			}
 			try {
-				Log.log("Locking lock in getMessage");
+				Log.info("Locking lock in getMessage");
 				lock.lock();
 				jo = queue.remove();
-				Log.log("Removed from Queue: " + jo.getString("type"));
-				Log.log("Queue size after remove: " + queue.size());
+				Log.info("Removed from Queue: " + jo.getString("type"));
+				Log.info("Queue size after remove: " + queue.size());
 			} catch (Exception e) {
-				Log.log("Exception in getMessage: " + e.getMessage());
+				Log.info("Exception in getMessage: " + e.getMessage());
 			} finally {
 				// lock.notify();
 				lock.unlock();
-				Log.log("Unlocked lock in getMessage");
+				Log.info("Unlocked lock in getMessage");
 			}
 		}
 		return jo;
@@ -120,7 +120,7 @@ public class NetworkReceiveHanlder extends Thread {
 		try {
 			jo = new JSONObject(new String(b));
 		} catch (JSONException e) {
-			Log.log("Error in receiveJsonObject: " + e.getMessage());
+			Log.info("Error in receiveJsonObject: " + e.getMessage());
 			throw new JSONException(new String(b));
 		}
 		return jo;
